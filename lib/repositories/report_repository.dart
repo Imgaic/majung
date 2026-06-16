@@ -31,6 +31,16 @@ class ReportRepository extends BaseRepository {
     return [];
   }
 
+  /// 리포트를 Firestore에 저장합니다.
+  Future<void> saveReport(ReportLetter report) async {
+    if (!isEnabled) return;
+    try {
+      await _reportsCollection?.doc(report.id).set(report.toJson());
+    } catch (e) {
+      debugPrint('ReportRepository: saveReport error: $e');
+    }
+  }
+
   /// 특정 리포트를 읽음 처리합니다.
   Future<void> updateReportReadStatus(String id, {required bool isRead, required bool isNew}) async {
     if (!isEnabled) return;

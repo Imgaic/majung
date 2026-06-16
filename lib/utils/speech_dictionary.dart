@@ -41,6 +41,21 @@ enum SpeechKey {
 
   /// 월간 리포트 앱바 타이틀 접미사
   monthlyReportTitleSuffix,
+
+  /// 채팅 첫 인사 메시지
+  chatGreeting,
+
+  /// AI 응답 실패 시 폴백 메시지
+  chatFallbackReply,
+
+  /// 행동 추천 안내 메시지
+  activityRecommendationPrompt,
+
+  /// 활동 선택 후 마중이 응답
+  activitySelectedReply,
+
+  /// 활동 건너뛰기 후 마중이 응답
+  activitySkippedReply,
 }
 
 /// 말투 설정(존댓말/반말)에 대응하여 고정 텍스트 문구를 일괄 관리하는 사전(Dictionary) 클래스.
@@ -91,6 +106,26 @@ class SpeechDictionary {
     },
     SpeechKey.weeklyReportTitleSuffix: {true: '는 어땠을까요?', false: '는 어땠을까?'},
     SpeechKey.monthlyReportTitleSuffix: {true: '은 어땠을까요?', false: '은 어땠을까?'},
+    SpeechKey.chatGreeting: {
+      true: '오늘 하루는 어떠셨어요?',
+      false: '오늘 무슨 일 있었어?',
+    },
+    SpeechKey.chatFallbackReply: {
+      true: '오늘 하루도 힘내세요.',
+      false: '오늘 하루도 힘내자.',
+    },
+    SpeechKey.activityRecommendationPrompt: {
+      true: '이런 행동은 어떠세요?\n기분이 바뀔지도 몰라요',
+      false: '이런 행동은 어때?\n기분이 바뀔지도 몰라',
+    },
+    SpeechKey.activitySelectedReply: {
+      true: '탁월한 선택이에요! 오늘 저녁엔 {activity} 활동을 해보세요. 한결 기분이 가벼워질 거예요.',
+      false: '탁월한 선택이야! 오늘 저녁엔 {activity} 활동을 해보자. 한결 기분이 가벼워질 거야.',
+    },
+    SpeechKey.activitySkippedReply: {
+      true: '알겠어요. 굳이 뭔가를 하지 않아도 편안히 쉬는 것도 훌륭한 해결책이에요. 오늘 푹 쉬세요!',
+      false: '알겠어. 굳이 뭔가를 하지 않아도 편안히 쉬는 것도 훌륭한 해결책이야. 오늘 푹 쉬자!',
+    },
   };
 
   /// 말투 스타일(존댓말 true / 반말 false)과 키를 사용하여 사전에 정의된 고정 멘트를 반환합니다.

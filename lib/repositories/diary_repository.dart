@@ -40,6 +40,25 @@ class DiaryRepository extends BaseRepository {
     return [];
   }
 
+  /// 특정 날짜 범위의 일기를 가져옵니다. (date 필드 형식: "YYYY.MM.DD")
+  Future<List<DiaryData>> getDiariesInRange(String from, String to) async {
+    if (!isEnabled) return [];
+    try {
+      final snapshot = await _diariesCollection
+          ?.where('date', isGreaterThanOrEqualTo: from)
+          .where('date', isLessThanOrEqualTo: to)
+          .get();
+      if (snapshot != null) {
+        return snapshot.docs
+            .map((doc) => DiaryData.fromJson(doc.data() as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('DiaryRepository: getDiariesInRange error: $e');
+    }
+    return [];
+  }
+
   /// 일기를 추가하거나 수정합니다.
   Future<void> saveDiary(DiaryData diary) async {
     if (!isEnabled) return;

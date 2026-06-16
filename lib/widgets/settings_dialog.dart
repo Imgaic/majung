@@ -7,6 +7,7 @@ import 'custom_toggle.dart';
 import 'style_segmented_slider.dart';
 import 'confirm_dialog.dart';
 import '../providers/user_provider.dart';
+import '../providers/report_schedule_provider.dart';
 import '../main.dart'; // selectedStyleProvider, toggleStateProvider
 import '../utils/speech_dictionary.dart';
 
@@ -52,6 +53,11 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     final userName = ref.watch(userNameProvider);
     final selectedStyle = ref.watch(selectedStyleProvider);
     final isPushActive = ref.watch(toggleStateProvider);
+    final schedule = ref.watch(reportScheduleProvider).when(
+          data: (v) => v,
+          loading: () => const ReportSchedule(),
+          error: (_, __) => const ReportSchedule(),
+        );
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -59,7 +65,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 30),
       child: Container(
         width: 300,
-        height: 353,
+        height: 460,
         padding: const EdgeInsets.only(
           left: 24,
           right: 24,
@@ -203,9 +209,65 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
             ),
             const SizedBox(height: 12),
             Container(height: 1, color: AppColors.gray2),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-            // 5. 서비스 탈퇴 버튼
+            // 5. 리포트 수신 설정
+            Text('리포트 수신', style: AppTextStyle.body2R.copyWith(color: AppColors.grayScale9)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text('주간', style: AppTextStyle.caption1.copyWith(color: AppColors.gray4)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<int>(
+                      value: schedule.weeklyDay,
+                      isDense: true,
+                      style: AppTextStyle.caption1.copyWith(color: AppColors.grayScale9),
+                      items: const [
+                        DropdownMenuItem(value: 1, child: Text('월요일')),
+                        DropdownMenuItem(value: 2, child: Text('화요일')),
+                        DropdownMenuItem(value: 3, child: Text('수요일')),
+                        DropdownMenuItem(value: 4, child: Text('목요일')),
+                        DropdownMenuItem(value: 5, child: Text('금요일')),
+                        DropdownMenuItem(value: 6, child: Text('토요일')),
+                        DropdownMenuItem(value: 7, child: Text('일요일')),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) ref.read(reportScheduleProvider.notifier).setWeeklyDay(v);
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Text('월간', style: AppTextStyle.caption1.copyWith(color: AppColors.gray4)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<int>(
+                      value: schedule.monthlyDay,
+                      isDense: true,
+                      style: AppTextStyle.caption1.copyWith(color: AppColors.grayScale9),
+                      items: List.generate(28, (i) => i + 1)
+                          .map((d) => DropdownMenuItem(value: d, child: Text('$d일')))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) ref.read(reportScheduleProvider.notifier).setMonthlyDay(v);
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(height: 1, color: AppColors.gray2),
+            const SizedBox(height: 12),
+
+            // 6. 서비스 탈퇴 버튼
             GestureDetector(
               onTap: () {
                 // 기존 설정창 모달을 닫고 전환하는 효과

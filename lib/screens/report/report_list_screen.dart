@@ -7,14 +7,46 @@ import '../../providers/report_provider.dart';
 import 'report_detail_screen.dart';
 
 import '../../widgets/custom_app_bar.dart';
+import '../../providers/user_provider.dart';
 
 /// 피그마 "편지 보관함 (리포트 목록)" 화면 (node 16:70) 구현.
 /// 상단 주간 / 월간 전환용 탭을 제공하며, 탭에 해당하는 편지 리스트를 렌더링합니다.
-class ReportListScreen extends ConsumerWidget {
+class ReportListScreen extends ConsumerStatefulWidget {
   const ReportListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ReportListScreen> createState() => _ReportListScreenState();
+}
+
+class _ReportListScreenState extends ConsumerState<ReportListScreen> {
+  bool _isGenerating = false;
+
+  Future<void> _generate(bool isWeekly) async {
+    setState(() => _isGenerating = true);
+    try {
+      final userName = ref.read(userNameProvider);
+      await ref.read(reportListProvider.notifier).generateReport(
+        userName: userName,
+        isWeekly: isWeekly,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${isWeekly ? '주간' : '월간'} 리포트가 생성됐어요.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('생성 실패: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isGenerating = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final activeTab = ref.watch(reportTabProvider);
     final reportList = ref.watch(filteredReportsProvider);
 
@@ -42,7 +74,39 @@ class ReportListScreen extends ConsumerWidget {
                   labels: const ['주간', '월간'],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
+
+              // 리포트 수동 생성 버튼 (테스트용)
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _isGenerating ? null : () => _generate(true),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppColors.mainColor),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: _isGenerating
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Text('주간 리포트 생성', style: AppTextStyle.caption1),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _isGenerating ? null : () => _generate(false),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppColors.mainColor),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: _isGenerating
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Text('월간 리포트 생성', style: AppTextStyle.caption1),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
 
               // 2. 편지 카드 목록 렌더링
               Expanded(

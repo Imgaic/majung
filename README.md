@@ -2,6 +2,26 @@
 
 마음의 무게를 덜어주는 대화형 일기 및 마음 케어 솔루션, **마중(Majung)** 플러터 애플리케이션 프로젝트입니다.
 
+> **플랫폼**: iOS · Android · Web  
+> **Firebase 프로젝트 ID**: `majung-ce508`  
+> **Flutter SDK**: ^3.12.0 · **상태관리**: Riverpod 3.x · **AI**: Gemini 2.0-flash (Cloud Functions)
+
+---
+
+## 📱 앱 개요
+
+"마중(마중이)"은 AI 마스코트 캐릭터와의 공감 대화를 통해 일기를 자동 생성하고, 기분을 5단계로 추적하며, 맞춤 행동을 추천하는 정서 케어 앱입니다.
+
+| 화면 | 기능 요약 |
+|------|-----------|
+| **온보딩** | 6단계 (이름·말투·캘린더·사진·알림 권한 설정) |
+| **홈** | 최신 추천 행동 카드 + 최근 일기 프리뷰, 하단 탭 내비게이션 |
+| **채팅** | AI 대화 모드 / 직접 쓰기 모드 → 일기 자동 생성 |
+| **캘린더** | 월간 뷰, 기분 색상 표시, 날짜별 일기 프리뷰 |
+| **리포트** | 주간/월간 편지 수신함 (존댓말/반말 이중 버전) |
+| **행동 모음** | 추천 행동 라이브러리, 하트 즐겨찾기 |
+| **알림** | FCM 푸시 알림 수신 히스토리 |
+
 ---
 
 ## 🎨 주요 구현 피처 및 디자인 시스템
@@ -66,11 +86,11 @@ graph TD
 - **현황**: Cloud Functions TypeScript 코드 및 클라이언트 연동 코드가 **모두 작성 완료**되었으나, Gemini API 키 등록 및 Firebase 배포가 아직 실행되지 않은 상태입니다. 현재 앱은 로컬 Ollama(`qwen2.5:7b`) 기반으로 대화 및 일기 생성을 테스트 중입니다.
 
 - **구현 완료 사항**:
-  1. **`functions/src/index.ts` — Cloud Functions 4종 작성 완료**:
-     - `chatWithMascot` (HTTPS Callable): 대화 기록 배열 수신 → Gemini API 호출 → `reply`, `shouldRecommendActions`, `recommendedActions[]` JSON 반환.
+  1. **`functions/src/index.ts` — Cloud Functions 5종 작성 완료**:
+     - `chatWithMascot` (HTTPS Callable): 대화 기록 배열 수신 → Gemini 2.0-flash 호출 → `reply`, `shouldRecommendActions`, `recommendedActions[]` JSON 반환.
      - `generateDiaryAndFeedback` (HTTPS Callable): 대화 기록 또는 직접 쓰기 데이터 수신 → 일기 본문, 기분(1~5), 마중이 답장, 추천 행동 3개 생성.
      - `onDiaryCreated` (Firestore Trigger): 일기 문서 생성 이벤트 → FCM 푸시 발송 + `notifications` 컬렉션 저장.
-     - `onReportCreated` (Firestore Trigger): 리포트 문서 생성 이벤트 → FCM 푸시 발송.
+     - `onReportCreated` (Firestore Trigger): 리포트 문서 생성 이벤트 → FCM 푸시 발송 + `notifications` 컬렉션 저장.
      - `dailyDiaryReminder` (Scheduled, 매일 20:00 KST): 미작성 유저 감지 → 캘린더 일정 기반 맞춤 리마인드 푸시 발송.
   2. **`lib/services/gemini_service.dart` — 이중 경로(Dual-Path) 아키텍처**:
      - `isCloudFunctionsEnabled = true`이면 Firebase Cloud Functions 엔드포인트 호출.
@@ -179,12 +199,40 @@ lib/
     └── notification_screen.dart         # FCM 알림 히스토리
 
 functions/
-├── src/index.ts                # Cloud Functions 4종 (TypeScript)
+├── src/index.ts                # Cloud Functions 5종 (TypeScript) — chatWithMascot, generateDiaryAndFeedback, onDiaryCreated, onReportCreated, dailyDiaryReminder
 └── package.json                # Node 18, @google/genai, firebase-admin
 ```
 
 ### 말투 일괄 제어 (`lib/utils/speech_dictionary.dart`)
 존댓말(높임말) 및 반말 설정에 따라 시스템 얼럿, 타이틀 헤더, 안내 메시지가 동적으로 변환되도록 일원화 관리 중입니다. 신규 고정 다이얼로그나 안내 추가 시 반드시 `SpeechKey`를 신설하고 `SpeechDictionary`에 사전 정의해 분기를 없애십시오.
+
+### Riverpod 상태 관리 (`lib/providers/`)
+
+| Provider | 책임 |
+|----------|------|
+| `userNameProvider` | 사용자 이름 저장/로드 |
+| `selectedStyleProvider` | 말투 선택 (0=반말, 1=존댓말) |
+| `toggleStateProvider` | 알림 on/off |
+| `diaryListProvider` | 전체 일기 목록 실시간 스트림 |
+| `selectedCalendarDateProvider` | 달력 선택 날짜 |
+| `calendarMonthProvider` | 달력 표시 월 |
+| `diaryProvider` | 단일 일기 생성 상태 |
+| `activityListProvider` | 추천 행동 라이브러리 |
+| `reportListProvider` | 리포트 목록 실시간 스트림 |
+| `reportTabProvider` | 주간/월간 탭 선택 |
+| `filteredReportsProvider` | 탭 기준 필터링된 리포트 |
+| `directWriteProvider` | 직접 쓰기 폼 상태 |
+| `notificationProvider` | FCM 알림 히스토리 |
+
+### Firestore 리포지토리 (`lib/repositories/`)
+
+| 리포지토리 | 담당 컬렉션 |
+|-----------|------------|
+| `UserRepository` | `users/{uid}` — 이름, 말투, FCM 토큰, 캘린더 이벤트 |
+| `DiaryRepository` | `users/{uid}/diaries` — CRUD + 실시간 스트림 |
+| `ActivityRepository` | `users/{uid}/activities` — 좋아요, 날짜 이력 |
+| `ReportRepository` | `users/{uid}/reports` — 실시간 스트림 |
+| `NotificationRepository` | `users/{uid}/notifications` — 읽음 처리, 삭제 |
 
 ---
 

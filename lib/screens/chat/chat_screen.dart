@@ -66,12 +66,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     // 최초 마중이 환영 인사 메시지 적재 (사용자 말투 설정 반영)
     final isHonorific = ref.read(selectedStyleProvider) == 1;
-    final greeting = isHonorific ? '오늘 하루는 어떠셨어요?' : '오늘 무슨 일 있었어?';
     _messages.add(
       ChatMessage(
         id: 'm_init',
         sender: MessageSender.mascot,
-        content: greeting,
+        content: SpeechDictionary.get(SpeechKey.chatGreeting, isHonorific),
         timestamp: DateTime.now(),
       ),
     );
@@ -198,7 +197,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         isHonorific: isHonorific,
         todayEvents: todayEvents,
       );
-      final reply = resultData['reply'] as String? ?? '오늘 하루도 힘내자.';
+      final reply = resultData['reply'] as String? ?? SpeechDictionary.get(SpeechKey.chatFallbackReply, isHonorific);
       final shouldRecommend = resultData['shouldRecommendActions'] as bool? ?? false;
       final List<dynamic>? recommendedList = resultData['recommendedActions'] as List<dynamic>?;
 
@@ -228,7 +227,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ChatMessage(
               id: 'm_${DateTime.now().millisecondsSinceEpoch}_recommend',
               sender: MessageSender.mascot,
-              content: '이런 행동은 어때?\n기분이 바뀔지도 몰라',
+              content: SpeechDictionary.get(SpeechKey.activityRecommendationPrompt, isHonorific),
               timestamp: DateTime.now(),
               type: MessageType.activityRecommendation,
             ),
@@ -288,13 +287,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     Timer(const Duration(milliseconds: 1500), () {
       if (!mounted) return;
+      final isHonorific = ref.read(selectedStyleProvider) == 1;
       setState(() {
         _isMascotTyping = false;
         _messages.add(
           ChatMessage(
             id: 'm_${DateTime.now().millisecondsSinceEpoch}',
             sender: MessageSender.mascot,
-            content: '탁월한 선택이야! 오늘 저녁엔 $activityLabel 활동을 해보자. 한결 기분이 가벼워질 거야.',
+            content: SpeechDictionary.get(SpeechKey.activitySelectedReply, isHonorific).replaceAll('{activity}', activityLabel),
             timestamp: DateTime.now(),
           ),
         );
@@ -321,13 +321,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     Timer(const Duration(milliseconds: 1500), () {
       if (!mounted) return;
+      final isHonorific = ref.read(selectedStyleProvider) == 1;
       setState(() {
         _isMascotTyping = false;
         _messages.add(
           ChatMessage(
             id: 'm_${DateTime.now().millisecondsSinceEpoch}',
             sender: MessageSender.mascot,
-            content: '알겠어. 굳이 뭔가를 하지 않아도 편안히 쉬는 것도 훌륭한 해결책이야. 오늘 푹 쉬자!',
+            content: SpeechDictionary.get(SpeechKey.activitySkippedReply, isHonorific),
             timestamp: DateTime.now(),
           ),
         );

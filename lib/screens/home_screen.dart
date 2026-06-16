@@ -18,6 +18,10 @@ import '../utils/datetime_extension.dart';
 import '../widgets/confirm_dialog.dart';
 import '../main.dart';
 import '../utils/speech_dictionary.dart';
+import '../providers/home_greeting_provider.dart';
+import '../providers/report_schedule_provider.dart';
+import '../providers/report_provider.dart';
+import '../providers/user_provider.dart';
 
 import 'calendar/calendar_screen.dart';
 
@@ -32,6 +36,23 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkAutoReport());
+  }
+
+  Future<void> _checkAutoReport() async {
+    final scheduleNotifier = ref.read(reportScheduleProvider.notifier);
+    final userName = ref.read(userNameProvider);
+    if (scheduleNotifier.shouldGenerateWeekly()) {
+      await ref.read(reportListProvider.notifier).generateReport(userName: userName, isWeekly: true);
+    }
+    if (scheduleNotifier.shouldGenerateMonthly()) {
+      await ref.read(reportListProvider.notifier).generateReport(userName: userName, isWeekly: false);
+    }
+  }
+
   void _navigateToChat() {
     final diaries = ref.read(diaryListProvider);
     final todayStr = DateTime.now().toDotString();
@@ -147,10 +168,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               },
             ),
             const SizedBox(height: 60),
-            // 캐릭터 말풍선
-            // TODO: 실제 서비스 시에는 여러 추천 멘트 중 랜덤으로 선택하여 출력하도록 로직 연계 예정 (현재는 피그마 대표 시안 멘트로 모크 고정)
-            const OnboardingBubble(
-              text: '오늘 퇴근길엔 한 정거장 먼저 내려서\n걸어보는 거 어때?\n기분이 조금 가벼워질지도 몰라.',
+            // 캐릭터 말풍선 - AI가 말투와 오늘 일정을 반영해 생성
+            ref.watch(homeGreetingProvider).when(
+              data: (greeting) => OnboardingBubble(text: greeting),
+              loading: () => const OnboardingBubble(text: '...'),
+              error: (_, __) => const OnboardingBubble(
+                text: '오늘도 잘 부탁해.',
+              ),
             ),
             const SizedBox(height: 28),
             // 마중이 캐릭터 (Figma 160x240, scale: 1.0)

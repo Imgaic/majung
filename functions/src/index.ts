@@ -11,10 +11,7 @@ admin.initializeApp();
 
 // Helper to get Gemini Client
 function getGeminiClient(): GoogleGenAI {
-  const apiKey = process.env.GEMINI_API_KEY;
-  console.log("GEMINI_API_KEY present:", !!apiKey, "prefix:", apiKey?.substring(0, 5));
-  // SDK가 환경변수(GEMINI_API_KEY)를 자동으로 읽음
-  return new GoogleGenAI({});
+  return new GoogleGenAI({ apiKey: geminiApiKey.value() });
 }
 
 // System Instruction outlining the Mascot persona & core constraints (no emojis, style match, calendar check)
@@ -75,20 +72,25 @@ ${conversationHistory}
 
 위 대화 기록을 바탕으로 사용자의 마지막 말에 마중이(대화 참여자)로서 공감하는 다음 한마디 대답(reply)을 생성해 주세요.
 또한, 사용자와 충분한 대화(턴이 2~3회 이상 진행됨)가 이루어졌거나 대화가 잘 마무리되는 느낌이 드는 시점이라고 판단될 경우, 기분 전환을 위한 구체적이고 실천하기 쉬운 행동(활동) 3가지를 함께 추천할 시점인지 결정해 주세요.
-각 추천 행동은 반드시 한 줄(20자 이내)로 간결하게 작성하고, '~하기', '~산책', '~마시기' 같은 명사형으로 마무리하세요.
+추천 행동 작성 규칙 (절대 준수):
+- 각 항목은 띄어쓰기 포함 20자 이내. 20자 초과 절대 금지.
+- 반드시 명사형 어미('~하기', '~마시기', '~읽기' 등)로 마무리. 동사형 절대 금지.
+- 3가지는 반드시 서로 다른 영역에서 선택 (예: 신체활동 / 창작·취미 / 휴식·감각 중 각 1개씩)
+- 대화 내용과 감정 맥락을 반드시 반영한 맞춤 추천. 뻔한 추천 금지.
+- 구체적이고 신선한 예시: "10분 스트레칭하기", "좋아하는 영화 보기", "낙서장에 감정 그리기", "향초 켜고 쉬기", "친구에게 안부 전하기", "새 레시피로 요리하기"
 
 출력은 반드시 아래 스키마를 만족하는 JSON 형태여야 합니다:
 {
   "reply": "마중이로서의 다음 응답 대사 (줄바꿈 가능, 절대 이모티콘 사용 금지)",
   "shouldRecommendActions": boolean (추천 활동을 보여줄 타이밍인지 여부),
-  "recommendedActions": ["행동1", "행동2", "행동3"] (shouldRecommendActions가 true일 때만 추천할 구체적 행동 3가지)
+  "recommendedActions": ["행동1", "행동2", "행동3"] (shouldRecommendActions가 true일 때만. 각 항목 반드시 20자 이내 명사형, 초과 절대 금지)
 }
 `;
 
   try {
-    console.log("Calling Gemini API with model: gemini-3.1-flash-lite");
+    console.log("Calling Gemini API with model: gemini-2.0-flash");
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite",
+      model: "gemini-2.0-flash",
       contents: prompt,
       config: { responseMimeType: "application/json" },
     });
@@ -146,7 +148,11 @@ ${SYSTEM_INSTRUCTION}
 - 내용: ${directWriteData.content}
 
 위 일기 내용(제목, 본문, 감정)을 면밀히 분석하여, 사용자의 감정에 공감하고 조언을 건네는 따뜻한 마중이의 답장(mascotFeedback)과 기분 전환에 도움이 될만한 3가지 추천 행동 목록(recommendedActions)을 생성해 주세요.
-각 추천 행동은 반드시 한 줄(20자 이내)로 간결하게 작성하고, '~하기', '~산책', '~마시기' 같은 명사형으로 마무리하세요.
+추천 행동 작성 규칙 (반드시 준수):
+- 각 항목은 띄어쓰기 포함 15자 이내로 작성
+- 반드시 명사형 어미('~하기', '~마시기', '~산책하기', '~읽기' 등)로 마무리
+- 동사형 문장('~하세요', '~해봐', '~해보세요') 사용 절대 금지
+- 올바른 예시: "가벼운 산책하기", "좋아하는 음악 듣기", "따뜻한 차 마시기"
 
 출력은 반드시 아래 스키마를 만족하는 JSON 형태여야 합니다 (기존 일기 데이터는 그대로 에코하여 포함시킵니다):
 {
@@ -187,7 +193,11 @@ ${conversationHistory}
    - mood 기준: 1=아주 좋음(매우 행복/설렘), 2=좋음(긍정적), 3=보통(무난/중립), 4=나쁨(우울/지침/힘듦), 5=아주 나쁨(매우 힘듦/슬픔/절망)
    - 반드시 대화 내용을 기반으로 실제 감정에 맞는 값을 판단하세요. 기본값 3으로 처리하지 마세요.
 4. 마중이로서 대화를 마무리하며 사용자에게 건네는 따뜻한 답장 피드백(mascotFeedback)을 작성해 주세요. 만약 사용자가 실천하기로 선택한 행동(selectedActivity)이 있다면, 이에 대해 힘을 돋우는 응원의 한마디를 포함해 주세요.
-5. 추천 행동(recommendedActions)은 반드시 한 줄(20자 이내)로 간결하게 작성하고, '~하기', '~산책', '~마시기' 같은 명사형으로 마무리하세요.
+5. 추천 행동(recommendedActions) 작성 규칙 (반드시 준수):
+   - 각 항목은 띄어쓰기 포함 15자 이내로 작성
+   - 반드시 명사형 어미('~하기', '~마시기', '~산책하기', '~읽기' 등)로 마무리
+   - 동사형 문장('~하세요', '~해봐', '~해보세요') 사용 절대 금지
+   - 올바른 예시: "가벼운 산책하기", "좋아하는 음악 듣기", "따뜻한 차 마시기"
 
 출력은 반드시 아래 스키마를 만족하는 JSON 형태여야 합니다:
 {
@@ -202,7 +212,7 @@ ${conversationHistory}
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite",
+      model: "gemini-2.0-flash",
       contents: prompt,
       config: { responseMimeType: "application/json" },
     });
@@ -214,7 +224,327 @@ ${conversationHistory}
 });
 
 /**
- * 3. Firestore 트리거: 새 리포트 생성 시 FCM 푸시 알림 발송
+ * 3. 리포트 생성 API (generateReport)
+ * 일기 목록을 받아 주간/월간 편지 리포트를 AI로 생성합니다.
+ */
+export const generateReport = onCall({ maxInstances: 10, secrets: [geminiApiKey] }, async (request) => {
+  const { userName, isWeekly, dateRange, diaries } = request.data as {
+    userName: string;
+    isWeekly: boolean;
+    dateRange: string;
+    diaries: Array<{ date: string; title: string; content: string; mood: number }>;
+  };
+
+  const ai = getGeminiClient();
+  const reportType = isWeekly ? "주간" : "월간";
+  const diaryText = diaries.map((d) => `[${d.date}] 감정:${d.mood} 제목:${d.title}\n${d.content}`).join("\n\n");
+
+  const weeklySchema = `{
+  "title": "${reportType} 편지 제목",
+  "oneLiner_honorific": "한 줄 요약 (존댓말)",
+  "oneLiner_casual": "한 줄 요약 (반말)",
+  "content_honorific": "편지 본문 (존댓말, 줄바꿈 \\n, 3~5문단)",
+  "content_casual": "편지 본문 (반말, 줄바꿈 \\n, 3~5문단)",
+  "signature_honorific": "편지 서명 (존댓말)",
+  "signature_casual": "편지 서명 (반말)",
+  "recommendationTitle": "추천 행동 제목 (이번 주 감정 맥락 반영)",
+  "recommendations": ["추천행동1 (20자 이내 명사형)", "추천행동2", "추천행동3"]
+}`;
+
+  const monthlySchema = `{
+  "title": "${reportType} 편지 제목",
+  "oneLiner_honorific": "한 줄 요약 (존댓말)",
+  "oneLiner_casual": "한 줄 요약 (반말)",
+  "content_honorific": "편지 본문 (존댓말, 줄바꿈 \\n, 3~5문단)",
+  "content_casual": "편지 본문 (반말, 줄바꿈 \\n, 3~5문단)",
+  "signature_honorific": "편지 서명 (존댓말)",
+  "signature_casual": "편지 서명 (반말)",
+  "wrapUp_honorific": "마무리 멘트 (존댓말)",
+  "wrapUp_casual": "마무리 멘트 (반말)",
+  "weeklySummaries": [
+    {"weekTitle": "이달 초", "description": "첫째 주 요약"},
+    {"weekTitle": "이달 중", "description": "중간 주 요약"},
+    {"weekTitle": "이달 말", "description": "마지막 주 요약"}
+  ]
+}`;
+
+  const prompt = `
+${SYSTEM_INSTRUCTION}
+
+[사용자 이름: ${userName}]
+[기간: ${dateRange}]
+[일기 목록]
+${diaryText || "이 기간에 작성된 일기가 없습니다."}
+
+위 일기들을 바탕으로 ${userName}에게 보내는 따뜻한 ${reportType} 편지 리포트를 생성해주세요.
+이모티콘 절대 금지. 존댓말/반말 버전을 모두 작성하세요.
+
+출력은 반드시 아래 JSON 형태:
+${isWeekly ? weeklySchema : monthlySchema}
+`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.0-flash",
+      contents: prompt,
+      config: { responseMimeType: "application/json" },
+    });
+    return JSON.parse(response.text ?? "");
+  } catch (error: any) {
+    throw new HttpsError("internal", error.message || "Failed to generate report.");
+  }
+});
+
+/**
+ * 4. 스케줄: 매주 월요일 오전 9시(KST) 주간 리포트 자동 생성
+ */
+export const scheduledWeeklyReport = onSchedule(
+  { schedule: "0 0 * * 1", timeZone: "Asia/Seoul", secrets: [geminiApiKey] },
+  async () => {
+    const ai = getGeminiClient();
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+
+    // 지난 7일 범위 계산
+    const to = new Date(now);
+    to.setDate(to.getDate() - 1);
+    const from = new Date(to);
+    from.setDate(from.getDate() - 6);
+
+    const fmt = (d: Date) => `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
+    const dateRange = `${fmt(from)} ~ ${fmt(to)}`;
+    const fromStr = fmt(from);
+    const toStr = fmt(to);
+
+    const usersSnapshot = await admin.firestore().collection("users").get();
+
+    await Promise.allSettled(usersSnapshot.docs.map(async (userDoc) => {
+      const uid = userDoc.id;
+      const userData = userDoc.data();
+      const userName: string = userData.name || "사용자";
+
+      // 기간 내 일기 조회
+      const diarySnapshot = await admin.firestore()
+        .collection("users").doc(uid)
+        .collection("diaries")
+        .where("date", ">=", fromStr)
+        .where("date", "<=", toStr)
+        .get();
+
+      if (diarySnapshot.empty) return;
+
+      const diaries = diarySnapshot.docs.map((d) => d.data());
+      const diaryText = diaries.map((d) => `[${d.date}] 감정:${d.mood} 제목:${d.title}\n${d.content}`).join("\n\n");
+
+      const prompt = `
+${SYSTEM_INSTRUCTION}
+[사용자: ${userName}] [기간: ${dateRange}]
+[일기 목록]
+${diaryText}
+
+위 일기를 바탕으로 따뜻한 주간 편지 리포트를 JSON으로 생성. 이모티콘 금지.
+{
+  "title": "주간 편지 제목",
+  "oneLiner_honorific": "한 줄 요약 (존댓말)",
+  "oneLiner_casual": "한 줄 요약 (반말)",
+  "content_honorific": "편지 본문 (존댓말, \\n 줄바꿈)",
+  "content_casual": "편지 본문 (반말, \\n 줄바꿈)",
+  "signature_honorific": "서명 (존댓말)",
+  "signature_casual": "서명 (반말)",
+  "recommendationTitle": "추천 제목",
+  "recommendations": ["추천1 (20자 이내 명사형)", "추천2", "추천3"]
+}`;
+
+      try {
+        const response = await ai.models.generateContent({
+          model: "gemini-2.0-flash",
+          contents: prompt,
+          config: { responseMimeType: "application/json" },
+        });
+        const result = JSON.parse(response.text ?? "");
+        const reportId = `weekly_${fromStr.replace(/\./g, "")}`;
+
+        await admin.firestore()
+          .collection("users").doc(uid)
+          .collection("reports").doc(reportId)
+          .set({
+            id: reportId,
+            title: result.title,
+            dateRange,
+            isWeekly: true,
+            isRead: false,
+            isNew: true,
+            oneLiner: { true: result.oneLiner_honorific, false: result.oneLiner_casual },
+            content: { true: result.content_honorific, false: result.content_casual },
+            signature: { true: result.signature_honorific, false: result.signature_casual },
+            recommendationTitle: result.recommendationTitle,
+            recommendations: result.recommendations,
+          });
+
+        console.log(`주간 리포트 생성 완료: uid=${uid}`);
+      } catch (e) {
+        console.error(`주간 리포트 생성 실패: uid=${uid}`, e);
+      }
+    }));
+  }
+);
+
+/**
+ * 5. 스케줄: 매월 1일 오전 9시(KST) 월간 리포트 자동 생성
+ */
+export const scheduledMonthlyReport = onSchedule(
+  { schedule: "0 0 1 * *", timeZone: "Asia/Seoul", secrets: [geminiApiKey] },
+  async () => {
+    const ai = getGeminiClient();
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+
+    // 지난 달 범위 계산
+    const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastOfLastMonth = new Date(firstOfThisMonth.getTime() - 86400000);
+    const firstOfLastMonth = new Date(lastOfLastMonth.getFullYear(), lastOfLastMonth.getMonth(), 1);
+
+    const fmt = (d: Date) => `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
+    const fromStr = fmt(firstOfLastMonth);
+    const toStr = fmt(lastOfLastMonth);
+    const dateRange = `${fromStr} ~ ${toStr}`;
+    const monthLabel = `${lastOfLastMonth.getFullYear()}년 ${lastOfLastMonth.getMonth() + 1}월`;
+
+    const usersSnapshot = await admin.firestore().collection("users").get();
+
+    await Promise.allSettled(usersSnapshot.docs.map(async (userDoc) => {
+      const uid = userDoc.id;
+      const userData = userDoc.data();
+      const userName: string = userData.name || "사용자";
+
+      const diarySnapshot = await admin.firestore()
+        .collection("users").doc(uid)
+        .collection("diaries")
+        .where("date", ">=", fromStr)
+        .where("date", "<=", toStr)
+        .get();
+
+      if (diarySnapshot.empty) return;
+
+      const diaries = diarySnapshot.docs.map((d) => d.data());
+      const diaryText = diaries.map((d) => `[${d.date}] 감정:${d.mood} 제목:${d.title}\n${d.content}`).join("\n\n");
+
+      const prompt = `
+${SYSTEM_INSTRUCTION}
+[사용자: ${userName}] [기간: ${monthLabel}]
+[일기 목록]
+${diaryText}
+
+위 일기를 바탕으로 따뜻한 월간 편지 리포트를 JSON으로 생성. 이모티콘 금지.
+{
+  "title": "월간 편지 제목",
+  "oneLiner_honorific": "한 줄 요약 (존댓말)",
+  "oneLiner_casual": "한 줄 요약 (반말)",
+  "content_honorific": "편지 본문 (존댓말, \\n 줄바꿈)",
+  "content_casual": "편지 본문 (반말, \\n 줄바꿈)",
+  "signature_honorific": "서명 (존댓말)",
+  "signature_casual": "서명 (반말)",
+  "wrapUp_honorific": "마무리 멘트 (존댓말)",
+  "wrapUp_casual": "마무리 멘트 (반말)",
+  "weeklySummaries": [
+    {"weekTitle": "이달 초", "description": "첫째 주 요약"},
+    {"weekTitle": "이달 중", "description": "중간 주 요약"},
+    {"weekTitle": "이달 말", "description": "마지막 주 요약"}
+  ]
+}`;
+
+      try {
+        const response = await ai.models.generateContent({
+          model: "gemini-2.0-flash",
+          contents: prompt,
+          config: { responseMimeType: "application/json" },
+        });
+        const result = JSON.parse(response.text ?? "");
+        const reportId = `monthly_${lastOfLastMonth.getFullYear()}${pad(lastOfLastMonth.getMonth() + 1)}`;
+
+        await admin.firestore()
+          .collection("users").doc(uid)
+          .collection("reports").doc(reportId)
+          .set({
+            id: reportId,
+            title: result.title,
+            dateRange,
+            isWeekly: false,
+            isRead: false,
+            isNew: true,
+            oneLiner: { true: result.oneLiner_honorific, false: result.oneLiner_casual },
+            content: { true: result.content_honorific, false: result.content_casual },
+            signature: { true: result.signature_honorific, false: result.signature_casual },
+            wrapUp: { true: result.wrapUp_honorific, false: result.wrapUp_casual },
+            weeklySummaries: result.weeklySummaries,
+          });
+
+        console.log(`월간 리포트 생성 완료: uid=${uid}`);
+      } catch (e) {
+        console.error(`월간 리포트 생성 실패: uid=${uid}`, e);
+      }
+    }));
+  }
+);
+
+/**
+ * 6. 홈 화면 인사 문구 생성 API (generateHomeGreeting)
+ * 앱 진입 시 말투와 오늘 일정을 바탕으로 마중이의 짧은 인사 문구를 생성합니다.
+ */
+export const generateHomeGreeting = onCall({ maxInstances: 10, secrets: [geminiApiKey] }, async (request) => {
+  const { userName, isHonorific, todayEvents } = request.data as {
+    userName: string;
+    isHonorific: boolean;
+    todayEvents: string[];
+  };
+
+  const ai = getGeminiClient();
+
+  const styleRule = isHonorific
+    ? "반드시 존댓말(~요, ~습니다, ~세요)만 사용하세요. 반말 절대 금지."
+    : "반드시 반말(~야, ~어, ~잖아, ~자)만 사용하세요. 존댓말 절대 금지.";
+
+  const eventsContext = todayEvents && todayEvents.length > 0
+    ? `오늘 일정: ${todayEvents.join(", ")}`
+    : "오늘 등록된 일정 없음";
+
+  const prompt = `
+${SYSTEM_INSTRUCTION}
+
+[말투 규칙 - 최우선 적용]
+${styleRule}
+
+[사용자 정보]
+- 이름: ${userName}
+- ${eventsContext}
+
+마중이로서 ${userName}에게 건네는 짧고 따뜻한 홈 화면 인사 문구를 생성해 주세요.
+규칙:
+- 2~3문장 이내로 짧게 작성
+- 오늘 일정이 있으면 자연스럽게 언급 (없으면 일반적인 따뜻한 인사)
+- 이모티콘 절대 금지
+- 말투 규칙 반드시 준수
+
+출력은 반드시 아래 JSON 형태:
+{
+  "greeting": "인사 문구 (줄바꿈은 \\n 사용)"
+}
+`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.0-flash",
+      contents: prompt,
+      config: { responseMimeType: "application/json" },
+    });
+    return JSON.parse(response.text ?? "");
+  } catch (error: any) {
+    throw new HttpsError("internal", error.message || "Failed to generate home greeting.");
+  }
+});
+
+/**
+ * 4. Firestore 트리거: 새 리포트 생성 시 FCM 푸시 알림 발송
  * 경로: users/{uid}/reports/{reportId}
  */
 export const onReportCreated = onDocumentCreated(

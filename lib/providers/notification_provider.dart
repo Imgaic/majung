@@ -31,6 +31,19 @@ class NotificationListNotifier extends Notifier<List<NotificationItem>> {
     await _repo.updateNotificationReadStatus(id, isUnread: false);
   }
 
+  /// 로컬 테스트용: 알림 목록 상단에 항목 추가
+  void addLocal(String title) {
+    final now = DateTime.now();
+    final date = '${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')}';
+    final item = NotificationItem(
+      id: now.millisecondsSinceEpoch.toString(),
+      title: title,
+      date: date,
+      isUnread: true,
+    );
+    state = [item, ...state];
+  }
+
   /// 모든 알림을 확인 처리하는 메서드 (추후 전역 제어 대비)
   Future<void> markAllAsRead() async {
     final oldState = List<NotificationItem>.from(state);
