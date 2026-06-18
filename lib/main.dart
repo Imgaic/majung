@@ -1,11 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:device_preview/device_preview.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'firebase_options.dart';
 
 import 'providers/user_provider.dart';
@@ -18,12 +16,8 @@ import 'widgets/custom_button.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/home_screen.dart';
 
-// 전역 플래그로 Firebase 사용 여부를 확인 가능하도록 설정
 bool isFirebaseEnabled = false;
-
 bool isCloudFunctionsEnabled = true;
-
-// --- Riverpod Providers (전역 공유 상태 관리) ---
 
 // 1. 대화 스타일 세그먼트 상태 공급자 (0: 반말, 1: 높임말)
 class SelectedStyle extends Notifier<int> {
@@ -85,13 +79,6 @@ Future<void> main() async {
     isFirebaseEnabled = true;
     debugPrint('Firebase: Successfully initialized');
 
-    // 로컬 에뮬레이터 설정 (Mac AirPlay Receiver의 5001 포트 충돌 방지를 위해 5002 포트 사용)
-    if (kDebugMode) {
-      final host = defaultTargetPlatform == TargetPlatform.android ? '10.0.2.2' : 'localhost';
-      FirebaseFunctions.instance.useFunctionsEmulator(host, 5002);
-      debugPrint('FirebaseFunctions: Using local emulator at $host:5002');
-    }
-
     // 익명 로그인 수행
     final auth = FirebaseAuth.instance;
     if (auth.currentUser == null) {
@@ -113,15 +100,12 @@ Future<void> main() async {
       }
     }
   } catch (e) {
-    debugPrint('Firebase: Initialization failed. Operating in mock mode. Error: $e');
+    debugPrint('Firebase: Initialization failed. Error: $e');
   }
 
   runApp(
-    DevicePreview(
-      enabled: !kReleaseMode,
-      builder: (context) => const ProviderScope(
-        child: MyApp(),
-      ),
+    const ProviderScope(
+      child: MyApp(),
     ),
   );
 }
@@ -132,9 +116,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Majung App',
-      locale: DevicePreview.locale(context),
-      builder: DevicePreview.appBuilder,
+      title: '마중',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -144,105 +126,92 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: AppColors.white,
         useMaterial3: true,
       ),
-      home: const MainHomeScreen(),
+      home: const LoginScreen(),
     );
   }
 }
 
-class MainHomeScreen extends ConsumerWidget {
-  const MainHomeScreen({super.key});
+/// 로그인 화면: 익명 로그인 후 온보딩 완료 여부에 따라 홈/온보딩으로 이동
+class LoginScreen extends ConsumerStatefulWidget {
+  const LoginScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  bool _isLoading = false;
+
+  Future<void> _start() async {
+    setState(() => _isLoading = true);
+    try {
+      // 온보딩 완료 여부: Firestore에 name 필드 존재 여부로 판단
+      final repo = ref.read(userRepositoryProvider);
+      final settings = await repo.getUserSettings();
+      final isOnboardingDone = settings != null && (settings['name'] as String? ?? '').isNotEmpty;
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => isOnboardingDone
+              ? const HomeScreen()
+              : const OnboardingScreen(),
+          settings: RouteSettings(name: isOnboardingDone ? '/home' : '/onboarding'),
+        ),
+      );
+    } catch (e) {
+      debugPrint('LoginScreen: 라우팅 오류: $e');
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.white,
-      appBar: AppBar(
-        title: Text(
-          '마중 개발자 런처',
-          style: AppTextStyle.body2B.copyWith(color: AppColors.grayScale9),
-        ),
-        centerTitle: true,
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1.0),
-          child: Container(
-            color: AppColors.gray2,
-            height: 1.0,
-          ),
-        ),
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 앱 로고 영역 시각 효과 대체
+              const Spacer(),
               Center(
-                child: Container(
-                  width: 90,
-                  height: 90,
-                  decoration: const BoxDecoration(
-                    color: AppColors.subColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Center(
-                    child: Text(
-                      '👋',
-                      style: TextStyle(fontSize: 40),
-                    ),
-                  ),
+                child: Image.asset(
+                  'assets/images/character.png',
+                  width: 160,
+                  height: 240,
+                  fit: BoxFit.contain,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
               Text(
-                '마중(Majung) 애플리케이션',
+                '마중',
                 textAlign: TextAlign.center,
-                style: AppTextStyle.body1.copyWith(
-                  color: AppColors.grayScale9,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: AppTextStyle.h1.copyWith(color: AppColors.grayScale9),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
-                '화면 및 흐름 검증을 위한 런처입니다.\n원하는 진입 방법을 선택해 주세요.',
+                '오늘 하루, 마중이에게 털어놓아요.',
                 textAlign: TextAlign.center,
-                style: AppTextStyle.caption1.copyWith(
-                  color: AppColors.gray4,
-                  height: 1.5,
-                ),
+                style: AppTextStyle.body2R.copyWith(color: AppColors.gray4),
+              ),
+              const Spacer(),
+              CustomButton(
+                label: _isLoading ? '로딩 중...' : '시작하기',
+                isFullWidth: true,
+                onPressed: _isLoading ? () {} : _start,
               ),
               const SizedBox(height: 40),
-              
-              // 1. 처음부터 흐름 시작하기 (온보딩 -> 홈)
-              CustomButton(
-                label: '✨ 처음부터 시작하기 (온보딩 ➡️ 홈)',
-                isFullWidth: true,
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const OnboardingScreen()),
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              
-              // 2. 홈 화면으로 바로가기 (모든 기능 연결됨)
-              CustomButton(
-                label: '🏠 홈 화면으로 바로가기 (모든 기능 연결됨)',
-                isFullWidth: true,
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const HomeScreen(),
-                      settings: const RouteSettings(name: '/home'),
-                    ),
-                  );
-                },
-              ),
             ],
           ),
         ),
