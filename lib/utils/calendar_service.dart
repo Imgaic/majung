@@ -73,4 +73,45 @@ class CalendarService {
     // 중복 일정 제거 후 반환
     return eventTitles.toSet().toList();
   }
+
+  /// 오늘 중 현재 시각 이전에 끝난 일정 제목 목록을 반환합니다.
+  /// 종료 시각이 없는 하루종일 일정은 현재 시각이 오전 6시 이후이면 포함합니다.
+  static Future<List<String>> getPastTodayEvents() async {
+    final List<String> eventTitles = [];
+    try {
+      var permissionsGranted = await _deviceCalendarPlugin.hasPermissions();
+      if (!permissionsGranted.isSuccess || permissionsGranted.data == false) {
+        final requestResult = await _deviceCalendarPlugin.requestPermissions();
+        if (!requestResult.isSuccess || requestResult.data == false) return [];
+      }
+
+      final calendarsResult = await _deviceCalendarPlugin.retrieveCalendars();
+      if (!calendarsResult.isSuccess || calendarsResult.data == null) return [];
+
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day, 0, 0, 0);
+      final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
+
+      for (final calendar in calendarsResult.data!) {
+        if (calendar.id == null) continue;
+        final eventsResult = await _deviceCalendarPlugin.retrieveEvents(
+          calendar.id,
+          RetrieveEventsParams(startDate: startOfDay, endDate: endOfDay),
+        );
+        if (!eventsResult.isSuccess || eventsResult.data == null) continue;
+        for (final event in eventsResult.data!) {
+          if (event.title == null || event.title!.trim().isEmpty) continue;
+          final end = event.end;
+          // 종료 시각이 현재보다 이전이거나, 하루종일 일정이고 오전 6시 이후
+          final isPast = end != null
+              ? end.isBefore(now)
+              : now.hour >= 6;
+          if (isPast) eventTitles.add(event.title!.trim());
+        }
+      }
+    } catch (e) {
+      debugPrint('CalendarService.getPastTodayEvents Error: $e');
+    }
+    return eventTitles.toSet().toList();
+  }
 }

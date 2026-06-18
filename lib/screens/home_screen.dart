@@ -22,6 +22,7 @@ import '../providers/home_greeting_provider.dart';
 import '../providers/report_schedule_provider.dart';
 import '../providers/report_provider.dart';
 import '../providers/user_provider.dart';
+import '../services/local_notification_service.dart';
 
 import 'calendar/calendar_screen.dart';
 
@@ -51,6 +52,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (scheduleNotifier.shouldGenerateMonthly()) {
       await ref.read(reportListProvider.notifier).generateReport(userName: userName, isWeekly: false);
     }
+    // 오늘 지난 일정을 기반으로 저녁 9시 일기 리마인더 예약
+    final isHonorific = ref.read(selectedStyleProvider) == 1;
+    await LocalNotificationService.scheduleDiaryReminder(isHonorific: isHonorific);
   }
 
   void _navigateToChat() {
