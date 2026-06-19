@@ -8,7 +8,7 @@ import '../../widgets/confirm_dialog.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/diary_provider.dart';
-import '../../widgets/error_screen.dart';
+import '../error_screen.dart';
 import 'widgets/chat_inner_button.dart';
 import 'diary_edit_screen.dart';
 import '../../utils/datetime_extension.dart';

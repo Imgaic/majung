@@ -31,8 +31,8 @@ class NotificationListNotifier extends Notifier<List<NotificationItem>> {
     await _repo.updateNotificationReadStatus(id, isUnread: false);
   }
 
-  /// 로컬 테스트용: 알림 목록 상단에 항목 추가
-  void addLocal(String title) {
+  /// 알림 목록 상단에 항목 추가 및 Firestore 저장
+  Future<void> addNotification(String title) async {
     final now = DateTime.now();
     final date = '${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')}';
     final item = NotificationItem(
@@ -42,6 +42,7 @@ class NotificationListNotifier extends Notifier<List<NotificationItem>> {
       isUnread: true,
     );
     state = [item, ...state];
+    await _repo.saveNotification(item);
   }
 
   /// 모든 알림을 확인 처리하는 메서드 (추후 전역 제어 대비)

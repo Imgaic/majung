@@ -7,11 +7,11 @@ class ReportLetter {
   final bool isRead;
   final bool isNew;
   
-  // 말투 옵션(존댓말 true / 반말 false)에 따른 분기 대응 문자열 맵
-  final Map<bool, String> content;      // 편지 본문
-  final Map<bool, String> oneLiner;     // 한 줄 요약/질문 (상세 상단에 표출)
-  final Map<bool, String> signature;    // 편지 하단 서명 (예: "늘 당신을 응원하는 마중이가 드림")
-  final Map<bool, String>? wrapUp;      // [월간 리포트 전용] 하단 마무리 멘트
+  // 생성 시점 선택한 말투의 단일 본문 데이터 필드
+  final String content;      // 편지 본문
+  final String oneLiner;     // 한 줄 요약/질문 (상세 상단에 표출)
+  final String signature;    // 편지 하단 서명 (예: "늘 당신을 응원하는 마중이가 드림")
+  final String? wrapUp;      // [월간 리포트 전용] 하단 마무리 멘트
   
   // [주간 리포트 전용] 행동 추천 관련 데이터
   final String? recommendationTitle;     // 추천 제목 (예: "늘 완벽한 결과물을 내야 한다는 부담이 올 때")
@@ -37,15 +37,22 @@ class ReportLetter {
   });
 
   factory ReportLetter.fromJson(Map<String, dynamic> json) {
-    Map<bool, String> parseBoolMap(Map<dynamic, dynamic>? map) {
-      if (map == null) return const {};
-      return map.map((key, value) => MapEntry(key.toString() == 'true', value as String));
+    String parseField(dynamic val) {
+      if (val == null) return '';
+      if (val is Map) {
+        // 기존 Map<bool, String> 형태의 데이터가 있을 경우의 폴백 처리
+        return (val['true'] ?? val['false'] ?? (val.isNotEmpty ? val.values.first : '')).toString();
+      }
+      return val.toString();
     }
 
-    final rawContent = json['content'] as Map<dynamic, dynamic>? ?? {};
-    final rawOneLiner = json['oneLiner'] as Map<dynamic, dynamic>? ?? {};
-    final rawSignature = json['signature'] as Map<dynamic, dynamic>? ?? {};
-    final rawWrapUp = json['wrapUp'] as Map<dynamic, dynamic>?;
+    String? parseNullableField(dynamic val) {
+      if (val == null) return null;
+      if (val is Map) {
+        return (val['true'] ?? val['false'] ?? (val.isNotEmpty ? val.values.first : null))?.toString();
+      }
+      return val.toString();
+    }
 
     return ReportLetter(
       id: json['id'] as String? ?? '',
@@ -54,10 +61,10 @@ class ReportLetter {
       isWeekly: json['isWeekly'] as bool? ?? true,
       isRead: json['isRead'] as bool? ?? false,
       isNew: json['isNew'] as bool? ?? false,
-      content: parseBoolMap(rawContent),
-      oneLiner: parseBoolMap(rawOneLiner),
-      signature: parseBoolMap(rawSignature),
-      wrapUp: rawWrapUp != null ? parseBoolMap(rawWrapUp) : null,
+      content: parseField(json['content']),
+      oneLiner: parseField(json['oneLiner']),
+      signature: parseField(json['signature']),
+      wrapUp: parseNullableField(json['wrapUp']),
       recommendationTitle: json['recommendationTitle'] as String?,
       recommendations: (json['recommendations'] as List<dynamic>?)?.map((e) => e as String).toList(),
       weeklySummaries: (json['weeklySummaries'] as List<dynamic>?)
@@ -67,10 +74,6 @@ class ReportLetter {
   }
 
   Map<String, dynamic> toJson() {
-    Map<String, String> stringifyBoolMap(Map<bool, String> map) {
-      return map.map((key, value) => MapEntry(key.toString(), value));
-    }
-
     return {
       'id': id,
       'title': title,
@@ -78,10 +81,10 @@ class ReportLetter {
       'isWeekly': isWeekly,
       'isRead': isRead,
       'isNew': isNew,
-      'content': stringifyBoolMap(content),
-      'oneLiner': stringifyBoolMap(oneLiner),
-      'signature': stringifyBoolMap(signature),
-      'wrapUp': wrapUp != null ? stringifyBoolMap(wrapUp!) : null,
+      'content': content,
+      'oneLiner': oneLiner,
+      'signature': signature,
+      'wrapUp': wrapUp,
       'recommendationTitle': recommendationTitle,
       'recommendations': recommendations,
       'weeklySummaries': weeklySummaries?.map((e) => e.toJson()).toList(),
@@ -95,10 +98,10 @@ class ReportLetter {
     bool? isWeekly,
     bool? isRead,
     bool? isNew,
-    Map<bool, String>? content,
-    Map<bool, String>? oneLiner,
-    Map<bool, String>? signature,
-    Map<bool, String>? wrapUp,
+    String? content,
+    String? oneLiner,
+    String? signature,
+    String? wrapUp,
     String? recommendationTitle,
     List<String>? recommendations,
     List<WeeklySummary>? weeklySummaries,

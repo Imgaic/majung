@@ -12,6 +12,16 @@ class NotificationRepository extends BaseRepository {
     return _firestore.collection('users').doc(uid).collection('notifications');
   }
 
+  /// 알림을 저장합니다.
+  Future<void> saveNotification(NotificationItem item) async {
+    if (!isEnabled) return;
+    try {
+      await _notificationsCollection?.doc(item.id).set(item.toJson());
+    } catch (e) {
+      debugPrint('NotificationRepository: saveNotification error: $e');
+    }
+  }
+
   /// Firestore에서 알림 목록을 가져옵니다. 없으면 빈 리스트를 반환합니다.
   Future<List<NotificationItem>> getNotifications() async {
     if (!isEnabled) return [];
@@ -21,8 +31,8 @@ class NotificationRepository extends BaseRepository {
         final list = snapshot.docs.map((doc) {
           return NotificationItem.fromJson(doc.data() as Map<String, dynamic>);
         }).toList();
-        // ID 순서대로 정렬
-        list.sort((a, b) => a.id.compareTo(b.id));
+        // 최신 알림이 위로 오도록 정렬 (내림차순)
+        list.sort((a, b) => b.id.compareTo(a.id));
         return list;
       }
     } catch (e) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../theme.dart';
+import '../../../utils/string_extension.dart';
 
 /// 피그마의 Union 말풍선 꼬리 및 음영 박스 데코레이터를 추상화한 공용 말풍선 위젯.
 class OnboardingBubble extends StatelessWidget {
@@ -51,7 +52,7 @@ class OnboardingBubble extends StatelessWidget {
             ],
           ),
           child: Text(
-            text,
+            text.withKoreanBalancedWrap.withKoreanWordBreak,
             textAlign: TextAlign.center,
             style: AppTextStyle.body2R.copyWith(
               color: AppColors.grayScale9,

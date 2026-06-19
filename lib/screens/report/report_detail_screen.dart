@@ -9,6 +9,7 @@ import '../../providers/user_provider.dart';
 import '../../main.dart'; // selectedStyleProvider
 import '../../widgets/custom_app_bar.dart';
 import '../../utils/speech_dictionary.dart';
+import '../../utils/string_extension.dart';
 
 /// 피그마 주간 리포트(node 27:121) 및 월간 리포트(node 30:403) 상세 정보를
 /// 유연하게 통합 처리하는 고충실도(High-Fidelity) 리포트 상세 화면입니다.
@@ -32,9 +33,9 @@ class ReportDetailScreen extends ConsumerWidget {
         title: '알 수 없음',
         dateRange: '',
         isWeekly: true,
-        oneLiner: {true: '', false: ''},
-        content: {true: '', false: ''},
-        signature: {true: '', false: ''},
+        oneLiner: '',
+        content: '',
+        signature: '',
       ),
     );
 
@@ -49,12 +50,9 @@ class ReportDetailScreen extends ConsumerWidget {
       );
     }
 
-    // 3. 말투 옵션에 대응하고 이름 자리표시자 '00' 치환 처리
-    final String rawOneLiner = report.oneLiner[isHonorific] ?? '';
-    final String processedOneLiner = rawOneLiner.replaceAll('00', userName);
-
-    final String rawContent = report.content[isHonorific] ?? '';
-    final String processedContent = rawContent.replaceAll('00', userName);
+    // 3. 이름 자리표시자 '00' 치환 처리
+    final String processedOneLiner = report.oneLiner.replaceAll('00', userName);
+    final String processedContent = report.content.replaceAll('00', userName);
 
     // 4. 피그마 v.4 명세에 맞춘 상단 타이틀 동적 가공
     String formattedTitle = report.title;
@@ -96,7 +94,7 @@ class ReportDetailScreen extends ConsumerWidget {
 
               // 6. 한 줄 요약/질문 (텍스트 중앙 정렬)
               Text(
-                processedOneLiner,
+                processedOneLiner.withKoreanBalancedWrap.withKoreanWordBreak,
                 textAlign: TextAlign.center,
                 style: AppTextStyle.body2SB.copyWith(
                   color: AppColors.grayScale9,
@@ -225,10 +223,7 @@ class ReportDetailScreen extends ConsumerWidget {
                       if (report.wrapUp != null) ...[
                         const SizedBox(height: 20),
                         Text(
-                          (report.wrapUp![isHonorific] ?? '').replaceAll(
-                            '00',
-                            userName,
-                          ),
+                          report.wrapUp!.replaceAll('00', userName),
                           style: AppTextStyle.text.copyWith(
                             color: AppColors.grayScale9,
                             height: 1.6,

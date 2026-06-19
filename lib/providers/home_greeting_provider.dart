@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/gemini_service.dart';
-import '../utils/calendar_service.dart';
+import '../services/calendar_service.dart';
 import 'user_provider.dart';
 import '../main.dart';
 
@@ -8,12 +8,12 @@ class HomeGreetingNotifier extends AsyncNotifier<String> {
   @override
   Future<String> build() async {
     ref.keepAlive(); // 홈 화면 벗어나도 캐시 유지 → 재진입 시 재호출 방지
-    return _fetch();
+    final userName = ref.watch(userNameProvider);
+    final isHonorific = ref.watch(selectedStyleProvider) == 1;
+    return _fetch(userName, isHonorific);
   }
 
-  Future<String> _fetch() async {
-    final userName = ref.read(userNameProvider);
-    final isHonorific = ref.read(selectedStyleProvider) == 1;
+  Future<String> _fetch(String userName, bool isHonorific) async {
     final todayEvents = await CalendarService.getTodayEvents();
 
     try {
@@ -39,9 +39,11 @@ class HomeGreetingNotifier extends AsyncNotifier<String> {
 
   Future<void> refresh() async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard(_fetch);
+    ref.invalidateSelf();
   }
 }
 
 final homeGreetingProvider =
-    AsyncNotifierProvider<HomeGreetingNotifier, String>(HomeGreetingNotifier.new);
+    AsyncNotifierProvider<HomeGreetingNotifier, String>(
+      HomeGreetingNotifier.new,
+    );

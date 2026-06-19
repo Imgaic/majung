@@ -12,6 +12,7 @@ import 'onboarding/widgets/onboarding_illustration.dart';
 import 'activity_collection_screen.dart';
 import 'report/report_list_screen.dart';
 import 'notification_screen.dart';
+import 'developer_screen.dart';
 import '../widgets/settings_dialog.dart';
 import '../providers/diary_list_provider.dart';
 import '../utils/datetime_extension.dart';
@@ -23,6 +24,7 @@ import '../providers/report_schedule_provider.dart';
 import '../providers/report_provider.dart';
 import '../providers/user_provider.dart';
 import '../services/local_notification_service.dart';
+import '../providers/notification_provider.dart';
 
 import 'calendar/calendar_screen.dart';
 
@@ -37,6 +39,8 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  int _logoTapCount = 0;
+
   @override
   void initState() {
     super.initState();
@@ -45,16 +49,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _checkAutoReport() async {
     final scheduleNotifier = ref.read(reportScheduleProvider.notifier);
-    final userName = ref.read(userNameProvider);
+
+    // userNameProvider가 비동기 로드 중일 수 있으므로 Repository에서 직접 최신 설정 정보를 로드합니다.
+    final repo = ref.read(userRepositoryProvider);
+    final settings = await repo.getUserSettings();
+    final userName = (settings != null && settings['name'] != null)
+        ? settings['name'] as String
+        : ref.read(userNameProvider);
+
     if (scheduleNotifier.shouldGenerateWeekly()) {
-      await ref.read(reportListProvider.notifier).generateReport(userName: userName, isWeekly: true);
+      await ref
+          .read(reportListProvider.notifier)
+          .generateReport(userName: userName, isWeekly: true);
     }
     if (scheduleNotifier.shouldGenerateMonthly()) {
-      await ref.read(reportListProvider.notifier).generateReport(userName: userName, isWeekly: false);
+      await ref
+          .read(reportListProvider.notifier)
+          .generateReport(userName: userName, isWeekly: false);
     }
-    // 오늘 지난 일정을 기반으로 저녁 9시 일기 리마인더 예약
-    final isHonorific = ref.read(selectedStyleProvider) == 1;
-    await LocalNotificationService.scheduleDiaryReminder(isHonorific: isHonorific);
+    // FCM으로 일기 리마인더가 일원화되었으므로 기존 로컬 알림 예약을 취소합니다.
+    await LocalNotificationService.cancelDiaryReminder();
   }
 
   void _navigateToChat() {
@@ -99,6 +113,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ? activities.first.title
         : '활동 모음 보러가기';
 
+    final hasUnreadNotification = ref.watch(notificationListProvider).any((item) => item.isUnread);
+
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
@@ -111,8 +127,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           padding: const EdgeInsets.only(left: 16, top: 6, bottom: 6),
           child: GestureDetector(
             onTap: () {
-              // 임시 코드: 개발자 런처(MainHomeScreen)로 되돌아가기
-              Navigator.pop(context);
+              _logoTapCount++;
+              if (_logoTapCount >= 5) {
+                _logoTapCount = 0;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const DeveloperScreen(),
+                  ),
+                );
+              }
             },
             child: Image.asset(
               'assets/images/main_logo.png',
@@ -124,7 +148,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         actions: [
           IconButton(
-            icon: SvgPicture.asset(AppIcons.bell, width: 24, height: 24),
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                SvgPicture.asset(AppIcons.bell, width: 24, height: 24),
+                if (hasUnreadNotification)
+                  Positioned(
+                    right: -2,
+                    top: -2,
+                    child: Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFD7E7E), // 미확인 도트 색상
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             onPressed: () {
               Navigator.push(
                 context,
@@ -173,13 +215,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SizedBox(height: 60),
             // 캐릭터 말풍선 - AI가 말투와 오늘 일정을 반영해 생성
-            ref.watch(homeGreetingProvider).when(
-              data: (greeting) => OnboardingBubble(text: greeting),
-              loading: () => const OnboardingBubble(text: '...'),
-              error: (_, __) => const OnboardingBubble(
-                text: '오늘도 잘 부탁해.',
-              ),
-            ),
+            ref
+                .watch(homeGreetingProvider)
+                .when(
+                  data: (greeting) => OnboardingBubble(text: greeting),
+                  loading: () => const OnboardingBubble(text: '...'),
+                  error: (_, _) => const OnboardingBubble(text: '오늘도 잘 부탁해.'),
+                ),
             const SizedBox(height: 28),
             // 마중이 캐릭터 (Figma 160x240, scale: 1.0)
             const Center(child: OnboardingIllustration(scale: 1.0)),

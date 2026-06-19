@@ -106,9 +106,18 @@ class DiaryNotifier extends Notifier<DiaryData?> {
   Future<void> deleteDiary() async {
     if (state != null) {
       final date = state!.date;
+      final selectedAction = state!.recommendedAction;
       final actions = List<String>.from(state!.recommendedActions);
       state = null;
+      
       await ref.read(diaryListProvider.notifier).deleteDiary(date);
+      
+      // 선택한 추천 활동 제거
+      if (selectedAction.isNotEmpty) {
+        await ref.read(activityListProvider.notifier).removeActivityDate(selectedAction, date);
+      }
+      
+      // 추천 후보 목록들 날짜 제거 (하위 호환 및 연쇄 제거 보장)
       for (final title in actions) {
         await ref.read(activityListProvider.notifier).removeActivityDate(title, date);
       }

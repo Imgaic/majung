@@ -5,7 +5,7 @@ class CalendarService {
   static final DeviceCalendarPlugin _deviceCalendarPlugin = DeviceCalendarPlugin();
 
   /// 오늘 하루 동안 등록되어 있는 사용자의 일정 제목(title) 목록을 조회합니다.
-  static Future<List<String>> getTodayEvents() async {
+  static Future<List<String>> getTodayEvents({bool requestPermission = false}) async {
     final List<String> eventTitles = [];
     try {
       // 1. 권한 보유 여부 확인
@@ -13,6 +13,10 @@ class CalendarService {
       debugPrint('CalendarService: hasPermissions() success = ${permissionsGranted.isSuccess}, data = ${permissionsGranted.data}');
       
       if (!permissionsGranted.isSuccess || permissionsGranted.data == false) {
+        if (!requestPermission) {
+          debugPrint('CalendarService: Calendar permissions not granted, requestPermission is false. Returning empty.');
+          return [];
+        }
         // 플러그인 레벨에서 권한이 감지되지 않으면, 플러그인 자체 권한 요청을 시도합니다.
         final requestResult = await _deviceCalendarPlugin.requestPermissions();
         debugPrint('CalendarService: requestPermissions() success = ${requestResult.isSuccess}, data = ${requestResult.data}');
@@ -76,11 +80,15 @@ class CalendarService {
 
   /// 오늘 중 현재 시각 이전에 끝난 일정 제목 목록을 반환합니다.
   /// 종료 시각이 없는 하루종일 일정은 현재 시각이 오전 6시 이후이면 포함합니다.
-  static Future<List<String>> getPastTodayEvents() async {
+  static Future<List<String>> getPastTodayEvents({bool requestPermission = false}) async {
     final List<String> eventTitles = [];
     try {
       var permissionsGranted = await _deviceCalendarPlugin.hasPermissions();
       if (!permissionsGranted.isSuccess || permissionsGranted.data == false) {
+        if (!requestPermission) {
+          debugPrint('CalendarService: Calendar permissions not granted, requestPermission is false. Returning empty.');
+          return [];
+        }
         final requestResult = await _deviceCalendarPlugin.requestPermissions();
         if (!requestResult.isSuccess || requestResult.data == false) return [];
       }

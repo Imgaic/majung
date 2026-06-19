@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../theme.dart';
 import '../../../widgets/custom_button.dart';
 import '../../../utils/permission_manager.dart';
-import '../../../utils/calendar_service.dart';
+import '../../../services/calendar_service.dart';
+import '../../../services/fcm_service.dart';
 import '../../../main.dart'; // toggleStateProvider
+import 'package:firebase_auth/firebase_auth.dart';
 
 /// 온보딩 4단계: 스마트폰 캘린더 동기화 동의 단계 위젯.
 class OnboardingCalendarStep extends ConsumerStatefulWidget {
@@ -41,14 +43,22 @@ class _OnboardingCalendarStepState extends ConsumerState<OnboardingCalendarStep>
       // 알림 권한을 허용했다면 홈 화면의 푸시 알람 토글 상태도 자동으로 ON 처리
       if (notificationGranted) {
         ref.read(toggleStateProvider.notifier).toggle(true);
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          await FcmService.initialize(uid: user.uid, requestPermission: true);
+        }
       }
 
       if (!mounted) return;
 
       if (calendarGranted) {
-        // 3. 오늘 일정 조회
-        final todayEvents = await CalendarService.getTodayEvents();
+        // 3. 오늘 일정 조회 및 Firestore 동기화
+        final todayEvents = await CalendarService.getTodayEvents(requestPermission: true);
         debugPrint('Majung Sync: Fetched Today\'s Events = $todayEvents');
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          await FcmService.syncTodayEvents(uid: user.uid, events: todayEvents);
+        }
       }
     } catch (e) {
       debugPrint('Sync Error: $e');

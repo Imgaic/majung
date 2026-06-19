@@ -56,6 +56,15 @@ enum SpeechKey {
 
   /// 활동 건너뛰기 후 마중이 응답
   activitySkippedReply,
+
+  /// 채팅 통신 장애 에러 메시지
+  chatConnectionError,
+
+  /// 사용자의 활동 선택 말풍선 멘트
+  userSelectActivity,
+
+  /// 사용자의 활동 건너뛰기 말풍선 멘트
+  userSkipActivity,
 }
 
 /// 말투 설정(존댓말/반말)에 대응하여 고정 텍스트 문구를 일괄 관리하는 사전(Dictionary) 클래스.
@@ -125,6 +134,18 @@ class SpeechDictionary {
     SpeechKey.activitySkippedReply: {
       true: '알겠어요. 굳이 뭔가를 하지 않아도 편안히 쉬는 것도 훌륭한 해결책이에요. 오늘 푹 쉬세요!',
       false: '알겠어. 굳이 뭔가를 하지 않아도 편안히 쉬는 것도 훌륭한 해결책이야. 오늘 푹 쉬자!',
+    },
+    SpeechKey.chatConnectionError: {
+      true: '죄송해요. 마중이와 대화 연결이 잠시 불안정해요. 잠시 후 다시 말씀해 주시겠어요?',
+      false: '미안해. 마중이와 대화 연결이 잠시 불안정하네. 조금 후에 다시 얘기해 줄래?',
+    },
+    SpeechKey.userSelectActivity: {
+      true: '{activity} 활동을 추천받아 볼게요!',
+      false: '{activity} 활동을 추천받아 볼래!',
+    },
+    SpeechKey.userSkipActivity: {
+      true: '이번에는 건너뛸게요.',
+      false: '이번에는 건너뛸래.',
     },
   };
 

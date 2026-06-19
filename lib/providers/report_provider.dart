@@ -4,6 +4,8 @@ import '../repositories/report_repository.dart';
 import '../repositories/diary_repository.dart';
 import '../services/gemini_service.dart';
 import '../services/local_notification_service.dart';
+import 'notification_provider.dart';
+import '../main.dart'; // selectedStyleProvider
 
 final reportRepositoryProvider = Provider((ref) => ReportRepository());
 final diaryRepositoryForReportProvider = Provider((ref) => DiaryRepository());
@@ -34,8 +36,8 @@ class ReportListNotifier extends Notifier<List<ReportLetter>> {
     final reportRepo = _repo;
 
     final now = DateTime.now();
-    final pad = (int n) => n.toString().padLeft(2, '0');
-    final fmt = (DateTime d) => '${d.year}.${pad(d.month)}.${pad(d.day)}';
+    String pad(int n) => n.toString().padLeft(2, '0');
+    String fmt(DateTime d) => '${d.year}.${pad(d.month)}.${pad(d.day)}';
 
     final String fromStr;
     final String toStr;
@@ -57,51 +59,66 @@ class ReportListNotifier extends Notifier<List<ReportLetter>> {
     final diaries = await diaryRepo.getDiariesInRange(fromStr, toStr);
     final diaryMaps = diaries.map((d) => d.toJson()).toList();
 
+    final isHonorific = ref.read(selectedStyleProvider) == 1;
+
     final result = await GeminiService.generateReport(
       userName: userName,
       isWeekly: isWeekly,
       dateRange: dateRange,
       diaries: diaryMaps,
+      isHonorific: isHonorific,
     );
 
     final reportId = isWeekly
         ? 'weekly_${fromStr.replaceAll('.', '')}'
         : 'monthly_${toStr.substring(0, 7).replaceAll('.', '')}';
 
-    Map<bool, String> boolMap(String honorific, String casual) =>
-        {true: honorific, false: casual};
+    final String calculatedTitle;
+    if (isWeekly) {
+      final parts = fromStr.split('.');
+      final year = int.parse(parts[0]);
+      final month = int.parse(parts[1]);
+      final day = int.parse(parts[2]);
+      final startDate = DateTime(year, month, day);
+      
+      final firstDay = DateTime(startDate.year, startDate.month, 1);
+      final firstWeekday = firstDay.weekday; // 1 = Monday, 7 = Sunday
+      final dayOffset = startDate.day + firstWeekday - 2;
+      final weekNum = (dayOffset / 7).floor() + 1;
+      
+      final weekWords = ['첫째', '둘째', '셋째', '넷째', '다섯째', '여섯째'];
+      final weekWord = (weekNum >= 1 && weekNum <= 6) ? weekWords[weekNum - 1] : '$weekNum째';
+      
+      calculatedTitle = '$month월 $weekWord 주';
+    } else {
+      final parts = fromStr.split('.');
+      final month = int.parse(parts[1]);
+      calculatedTitle = '$month월의 기록';
+    }
 
     final report = ReportLetter(
       id: reportId,
-      title: result['title'] as String? ?? dateRange,
+      title: calculatedTitle,
       dateRange: dateRange,
       isWeekly: isWeekly,
       isRead: false,
       isNew: true,
-      oneLiner: boolMap(
-        result['oneLiner_honorific'] as String? ?? '',
-        result['oneLiner_casual'] as String? ?? '',
-      ),
-      content: boolMap(
-        result['content_honorific'] as String? ?? '',
-        result['content_casual'] as String? ?? '',
-      ),
-      signature: boolMap(
-        result['signature_honorific'] as String? ?? '',
-        result['signature_casual'] as String? ?? '',
-      ),
-      wrapUp: isWeekly ? null : boolMap(
-        result['wrapUp_honorific'] as String? ?? '',
-        result['wrapUp_casual'] as String? ?? '',
-      ),
-      recommendationTitle: isWeekly ? result['recommendationTitle'] as String? : null,
+      oneLiner: result['oneLiner'] as String? ?? '',
+      content: result['content'] as String? ?? '',
+      signature: result['signature'] as String? ?? '',
+      wrapUp: result['wrapUp'] as String?,
+      recommendationTitle: isWeekly
+          ? result['recommendationTitle'] as String?
+          : null,
       recommendations: isWeekly
-          ? (result['recommendations'] as List?)?.map((e) => e as String).toList()
+          ? (result['recommendations'] as List?)
+                ?.map((e) => e as String)
+                .toList()
           : null,
       weeklySummaries: isWeekly
           ? null
           : (result['weeklySummaries'] as List?)?.map((e) {
-              final m = e as Map<String, dynamic>;
+              final m = Map<String, dynamic>.from(e as Map);
               return WeeklySummary(
                 weekTitle: m['weekTitle'] as String? ?? '',
                 description: m['description'] as String? ?? '',
@@ -112,8 +129,21 @@ class ReportListNotifier extends Notifier<List<ReportLetter>> {
     await reportRepo.saveReport(report);
     state = [report, ...state.where((r) => r.id != reportId)];
 
-    final notifTitle = isWeekly ? '주간 리포트가 도착했어요' : '월간 리포트가 도착했어요';
-    await LocalNotificationService.show(title: notifTitle, body: report.title);
+    final String notifTitle;
+    if (isWeekly) {
+      notifTitle = isHonorific ? '$calculatedTitle 편지가 도착했어요' : '$calculatedTitle 편지가 도착했어';
+    } else {
+      notifTitle = isHonorific ? '$calculatedTitle이 도착했어요' : '$calculatedTitle이 도착했어';
+    }
+
+    await LocalNotificationService.show(
+      title: notifTitle,
+      body: isHonorific ? '마중이의 따뜻한 리포트를 확인해 보세요.' : '마중이의 따뜻한 리포트를 확인해 봐.',
+      payload: 'report',
+    );
+
+    // Save report notification to Firestore/Notification List
+    await ref.read(notificationListProvider.notifier).addNotification(notifTitle);
   }
 
   /// 특정 편지를 읽음 처리합니다 (isRead -> true, isNew -> false).
@@ -123,18 +153,26 @@ class ReportListNotifier extends Notifier<List<ReportLetter>> {
         if (report.id == id)
           report.copyWith(isRead: true, isNew: false)
         else
-          report
+          report,
     ];
 
     await _repo.updateReportReadStatus(id, isRead: true, isNew: false);
+  }
+
+  /// 시연/테스트 등을 위해 리포트를 직접 저장/목록 갱신하는 메서드
+  Future<void> addDummyReport(ReportLetter report) async {
+    if (_repo.isEnabled) {
+      await _repo.saveReport(report);
+    }
+    state = [report, ...state.where((r) => r.id != report.id)];
   }
 }
 
 /// 전체 리포트 편지 리스트 공급자
 final reportListProvider =
     NotifierProvider<ReportListNotifier, List<ReportLetter>>(
-  ReportListNotifier.new,
-);
+      ReportListNotifier.new,
+    );
 
 /// 편지 보관함 탭 선택 상태 관리 (0: 주간, 1: 월간)
 class ReportTabNotifier extends Notifier<int> {

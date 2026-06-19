@@ -77,7 +77,7 @@ class ActivityListNotifier extends Notifier<List<RecommendationActivity>> {
   }
 
   /// 특정 활동의 선택 날짜 이력에서 특정 날짜를 제거합니다.
-  /// 날짜 이력이 완전히 비고 좋아요(isLiked)도 되지 않은 경우 해당 활동을 완전히 삭제합니다.
+  /// 날짜 이력이 완전히 비면 해당 활동을 완전히 삭제합니다. (좋아요 상태 여부 무시)
   Future<void> removeActivityDate(String title, String date) async {
     final existingIndex = state.indexWhere((act) => act.title == title);
     if (existingIndex == -1) return;
@@ -85,8 +85,8 @@ class ActivityListNotifier extends Notifier<List<RecommendationActivity>> {
     final activity = state[existingIndex];
     final updatedDates = activity.selectedDates.where((d) => d != date).toList();
 
-    if (updatedDates.isEmpty && !activity.isLiked) {
-      // 날짜 목록도 비어있고 좋아요도 없으면 활동 삭제
+    if (updatedDates.isEmpty) {
+      // 날짜 목록이 비어있으면 활동 삭제
       state = state.where((act) => act.title != title).toList();
       if (_repo.isEnabled) {
         await _repo.deleteActivity(activity.id);

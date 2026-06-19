@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
-import '../screens/onboarding/widgets/onboarding_illustration.dart';
-import 'custom_button.dart';
+import 'onboarding/widgets/onboarding_illustration.dart';
+import '../widgets/custom_button.dart';
 
 /// 앱 전역에서 발생하는 예외/에러 상황에 사용하는 고충실도 에러 화면.
 /// 피그마의 일관된 디자인 시스템과 캐릭터 일러스트를 활용해 안정적인 사용자 경험을 선사합니다.

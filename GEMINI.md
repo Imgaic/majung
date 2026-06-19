@@ -71,6 +71,27 @@
   9. **캐릭터 일러스트 크기 기본 비율 유지 및 마지막 단계 스케일 대응**: 온보딩 일러스트 기본 크기는 피그마 실측 규격인 160x240 (scale = 1.0)으로 원안 배치하되, 마지막 6단계인 말투 선택 페이지에서만 선택지 카드 배치 밀도를 보완하기 위해 132x198 (scale: 0.825)로 정확히 작아지도록 튜닝 적용함.
   10. **상단 타이틀 여백 일관성 강화**: 타이틀과 상단 AppBar 간의 여백을 기존 `12px`에서 `40px`로 확대 조정하여 화면 배치의 쾌적함과 디자인 시스템 상의 여백(Layout Margins)을 균형 있게 구현함.
 
+### [2026-06-19 추가 피드백 및 수칙 개정]
+- **문제**: 일기 리마인더 알림 문구 발송 시, 캘린더 일정이 참조되지 않고 기존 목데이터와 같이 일관된 문구만 발송됨. 또한 리포트 알림과 마찬가지로 본문은 굳이 API 호출 비용을 쓰지 않고 고정된 문구로 발송하고 제목만 AI가 생성하길 원함.
+- **원인**:
+  1. 개발자 화면에서 캘린더 일정을 조회할 때 `requestPermission: false`로 호출하여 권한 요청 팝업이 뜨지 않고 비어있는 배열(`[]`)이 반환됨.
+  2. 리마인더 알림 생성 시 제목과 본문을 둘 다 Gemini API를 거쳐 생성하도록 구현되어 리소스 낭비가 있었음.
+- **해결**:
+  1. `lib/screens/developer_screen.dart`에서 `CalendarService.getTodayEvents` 호출 시 `requestPermission: true`로 변경하여 기기 캘린더 권한 연동 및 실제 일정을 가져올 수 있도록 교정함.
+  2. `functions/src/handlers/chat.ts`에서 리마인더 생성을 담당하는 AI가 제목(`title`)만 생성하여 반환하도록 스키마 및 프롬프트를 간소화하고, 본문(`body`)은 사용자의 말투 선택 상태(`isHonorific`)에 맞춰 백엔드 단에서 하드코딩(존댓말: "마중이가 기다리고 있어요. 오늘의 이야기를 들려주세요.", 반말: "마중이가 기다리고 있어. 오늘 있었던 일 얘기해줘.")하여 반환 및 전송하도록 일원화함.
+- **요청**: 읽지 않은 알림이 존재할 때 홈 화면의 알림(종) 버튼 우측 상단에 알림 카드와 동일한 빨간색 원형 미확인 도트가 표시되도록 보완 요청.
+- **해결**:
+  - `lib/screens/home_screen.dart`에서 `notificationListProvider`를 모니터링하여 `isUnread == true`인 항목이 1개라도 존재하는지 검사(`hasUnreadNotification`)하도록 설정하고, AppBar 내 `IconButton`의 아이콘을 `Stack`으로 감싸 미확인 도트(`Color(0xFFFD7E7E)`)가 우측 상단에 노출되도록 구현함.
+- **요청**: 이미 앱이 켜진(포그라운드) 상태이거나 백그라운드/종료 상태에서 FCM 푸시 알림을 수신 및 클릭할 때도 각각 채팅방 및 편지 보관함으로 이동하도록 연동 보완 요청.
+- **해결**:
+  - `lib/services/fcm_service.dart`에 `FirebaseMessaging.onMessageOpenedApp.listen` 및 `getInitialMessage()` 처리부를 탑재하여 백그라운드/종료 상태에서의 클릭 유입 시 각 페이로드 타입(`daily_reminder` ➡️ 일기, `weekly_report`/`monthly_report` ➡️ 보관함)에 해당하는 화면으로 강제 전환(`navigatorKey.currentState.push`)하도록 구현함.
+  - 앱이 포그라운드(켜진 상태)일 때도 실시간 수신된 푸시 알림의 배너가 기기에 뜨고 클릭 시 정상 작동할 수 있도록 `FirebaseMessaging.onMessage.listen` 콜백 내에서 `LocalNotificationService.show`를 연동 실행하도록 보완함.
+- **문제**: 실물 아이폰 기기에서 디버그 시 AI 기능(Firebase Functions API 호출)이 정상 작동하지 않고 연결 거부(`Connection refused`) 오류 발생.
+- **원인**: 실물 기기 환경에서 `localhost`(127.0.0.1)는 맥북이 아닌 기기 본체 자신을 가리키기 때문에, 맥북 백그라운드에 구동 중인 로컬 에뮬레이터 포트(`5002`)에 접근하지 못해 발생함.
+- **해결**: `lib/main.dart`의 `kDebugMode` 분기 내에서 iOS 타겟 호스트명을 기존 `localhost`에서 맥북의 로컬 IP 주소(`172.30.1.43`)로 변경하여, 동일한 Wi-Fi 대역에 연결된 실물 기기가 맥북 로컬 에뮬레이터 서버로 성공적으로 통신할 수 있도록 통신 경로를 수정함.
+- **요청**: 개발자 테스트 화면에서 알림 발송 시, 홈 화면으로 이동할 수 있는 대기 시간을 확보하기 위해 전송 딜레이 기능 추가 요청.
+- **해결**: `lib/screens/developer_screen.dart`의 `_triggerReminderNotification`에 3초 딜레이(`Future.delayed`)를 삽입하고 안내 스낵바를 띄워, 사용자가 버튼 클릭 후 홈 화면으로 안전하게 빠져나가 백그라운드 환경에서 푸시 및 딥링크를 테스트할 수 있도록 편의성을 개선함.
+
 ---
 
 ## 🧭 5. 대규모 파일 모듈화 및 유지보수 규칙
