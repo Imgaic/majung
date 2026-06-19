@@ -33,8 +33,6 @@
 
 ## 시스템 아키텍처
 
-본 프로젝트는 클라이언트 애플리케이션과 서버리스 백엔드 인프라, 생성형 AI 엔진이 결합된 3-Tier 시스템 아키텍처로 설계되었습니다.
-
 ```mermaid
 flowchart TD
     subgraph Client [Flutter Client Application]
@@ -64,6 +62,16 @@ flowchart TD
     DB -->|7. 실시간 스트림 감지| App
     FCM -->|8. 원격 푸시 수신| App
 ```
+
+### 데이터 흐름 및 보안 메커니즘
+
+* **App ➡️ Auth (익명인증)**: 사용자가 앱을 켜면 백그라운드에서 자동으로 익명 로그인을 진행해 고유 UID(열쇠)를 획득합니다.
+* **App ➡️ DB (캘린더 동기화)**: 획득한 UID를 경로로 삼아 오늘 일정을 Firestore에 기록합니다.
+* **App ➡️ Func (대화 전송)**: 사용자가 채팅을 보내면 백엔드(Cloud Functions)를 호출합니다.
+* **Func ➡️ Gemini**: 백엔드가 해당 UID의 오늘 일정과 채팅 내용을 모아 AI에게 전달합니다.
+* **Gemini ➡️ Func**: AI가 구조화된 답변을 백엔드에 반환합니다.
+* **Func ➡️ DB**: 백엔드가 AI의 최종 분석 결과를 해당 사용자의 UID 하위 경로(`users/{UID}/diaries`)에 기록합니다.
+* **DB ➡️ App**: 사용자의 식별자(UID) 보관함에 새 일기가 기록되면 실시간 스트림이 감지되어 화면이 갱신됩니다.
 
 ---
 
