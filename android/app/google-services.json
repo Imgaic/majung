@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "871751942010",
+    "project_id": "majung-ce508",
+    "storage_bucket": "majung-ce508.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:871751942010:android:57a15a101f1f47f3b0e0c3",
+        "android_client_info": {
+          "package_name": "com.example.majung"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBgMwWew6HG45xxx5gjXWFiWFaLQjIAVCw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

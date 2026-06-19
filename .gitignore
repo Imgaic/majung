@@ -52,10 +52,6 @@ functions/node_modules/
 .env
 .env.local
 lib/secrets.dart
-lib/firebase_options.dart
-android/app/google-services.json
-ios/Runner/GoogleService-Info.plist
-macos/Runner/GoogleService-Info.plist
 
 # Playwright test artifacts
 .playwright-mcp/
